@@ -2,10 +2,7 @@ from sklearn import datasets
 import random
 import math
 from sklearn import preprocessing
-import heapq
-from collections import Counter
 import csv
-import numpy as np
 
 iris = datasets.load_iris()
 
@@ -33,9 +30,9 @@ class NeuralNetworkSystem:
 
         compare = lambda a, b: len(a) == len(b) and len(a) == sum([1 for i, j in zip(a, b) if i == j])
 
-        if expected == 1:
+        if expected == 0:
             expResult = [1, 0, 0]
-        elif expected == 2:
+        elif expected == 1:
             expResult = [0, 1, 0]
         else:
             expResult = [0, 0, 1]
@@ -51,21 +48,39 @@ class NeuralNetworkSystem:
                     outputs.append(currentNode.output)
                 tempInputs = outputs
 
-            for x in outputs:
-                if x < 0.1:
-                    x = 0
-                if x > 0.9:
-                    round(x)
+            for index, x in enumerate(outputs):
+                if x < 0.5:
+                    outputs[index] = 0
+                if x > 0.5:
+                    outputs[index] = round(x)
 
             if compare(outputs, expResult):
-                break
+                print(outputs)
+                return outputs
 
             for i, current in enumerate(reversed(self.layers)):
                 for j, currentNode in enumerate(current.nodes[1:]):
                     if i == 0:
                         currentNode.calculateOutputError(expResult[j])
-                    elif:
-                        currentNode.calculateHiddenError(expResult[j])
+                    else:
+                        propWeights = []
+                        propErrors = []
+                        for x in self.layers[len(self.layers) - i].nodes[1:]:
+                            propErrors.append(x.error)
+                        for x in self.layers[len(self.layers) - i].weights[1:][j]:
+                            propWeights.append(x)
+                        currentNode.calculateHiddenError(propWeights, propErrors)
+
+            weightInputs = [1]
+            for p in inputs:
+                weightInputs.append(p)
+            for layer in self.layers:
+                weightOutputs = []
+                for i, node in enumerate(layer.nodes[1:]):
+                    for j, w in enumerate(layer.weights[i]):
+                        layer.weights[i][j] = w - (0.1) * node.error * weightInputs[j]
+                        weightOutputs.append(node.output)
+                weightInputs = weightOutputs
 
 
     def predict(self, inputs):
@@ -77,6 +92,9 @@ class NeuralNetworkSystem:
                 currentNode.calculate(current.inputs, current.weights[i])
                 outputs.append(currentNode.output)
             tempInputs = outputs
+
+        for index, i in enumerate(outputs):
+            outputs[index] = round(i)
         return outputs
 
 
@@ -113,30 +131,46 @@ class Node:
         self.error = self.output * (1 - self.output) * (self.output - expVal)
 
     def calculateHiddenError(self, weights, errors):
-        totalError = 0
+        totalError = 0.0
         for w, d in zip (weights, errors):
-            totalError = totalError + (weights * errors)
+            totalError = totalError + (w * d)
         self.error = self.output * (1 - self.output) * totalError
 
     def calculate(self, inputs, weights):
-        a = 0
+        a = 0.0
         for i, w in zip(inputs, weights):
             a = a + (i * w)
         self.output = 1 / (1 + math.exp(-a))
         return self.output
 
-irisData = preprocessing.normalize(iris.data)
-irisMultiLayer = NeuralNetworkSystem(numLayers, numNodes, len(irisData[0]), numOutputs)
 
+data = (iris.data)
+target = iris.target
+combined = list(zip(data, target))
+random.shuffle(combined)
+
+
+trainData, trainTarget = zip(*combined[0:100])
+testData, testTarget = zip(*combined[100:len(data)+1])
+
+irisMultiLayer = NeuralNetworkSystem(numLayers, numNodes, len(data[0]), numOutputs)
+
+outputs = []
 irisResults = []
 
-for i in irisData:
+for z in range(5):
+    for index, i in enumerate(trainData):
+        print(index, " ", end="", flush=True)
+        outputs.append(irisMultiLayer.train(i, trainTarget[index]))
+
+for i in data:
     irisResults.append(irisMultiLayer.predict(i))
 
-for results in irisResults:
-    print(results)
+print("\n")
+for results, target in zip(irisResults, testTarget):
+    print(results, target)
 
-
+"""
 numLayers = int(input("Enter the number of hidden layers (Keep it relatively small): "))
 
 numNodes = []
@@ -158,4 +192,4 @@ for p in pimaData:
    pimaResults.append(pimaNeural.predict(p))
 
 for p in pimaResults:
-    print(p)
+    print(p)"""
